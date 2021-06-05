@@ -1,0 +1,5 @@
+line = 94 , type = <class 'FileNotFoundError'> , message = [Errno 2] No such file or directory: '/opt/ml/input/config/inputdataconfig.json'
+Traceback (most recent call last):
+  File "/opt/program/train", line 67, in train
+    with open(inputdataconfig_path, 'r') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/opt/ml/input/config/inputdataconfig.json'

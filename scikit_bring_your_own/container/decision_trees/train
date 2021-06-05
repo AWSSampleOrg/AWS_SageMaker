@@ -1,0 +1,113 @@
+#!/usr/bin/env python
+#-*- encoding:utf-8 -*-
+import json
+import os
+import pickle
+import subprocess
+import sys
+import traceback
+from logging import getLogger, StreamHandler, DEBUG, INFO, WARNING, ERROR, CRITICAL
+#Third Party
+import pandas as pd
+from sklearn import tree
+
+#logger setting
+logger = getLogger(__name__)
+handler = StreamHandler()
+handler.setLevel(DEBUG)
+logger.setLevel(os.getenv("LogLevel", WARNING))
+logger.addHandler(handler)
+logger.propagate = False
+
+"""
+/opt
+    ├── program
+    |    ├─ train                        学習
+    |    |
+    │    ├─ predict.py                   推論
+    │    ├─ wsgi.py                      推論
+    │    ├─ nginx.conf                   推論
+    │    └─ serve                        推論
+    └──ml
+        ├── input
+        │   ├── config
+        │   │   ├── hyperparameters.json 学習時などに使用するハイパーパラメータが辞書形式で保存されているJSONファイルです。辞書形式で値は全て文字列型になっているので、読み込む際には適切な型へのキャストを行う必要があります。
+        │   └── data
+        │       └── <channel_name>       対応するチャネルの入力データが入っています。学習処理が実行される前にS3からデータがコピーされます。
+        │           └── <input data>
+        ├── model                        学習の結果得られたモデルデータを出力します。
+        │   └── <model files>            保存するモデルデータは単体ファイル、複数ファイルは問いません。SageMakerが自動的にmodelディレクトリをtarで圧縮し、S3に保存します。
+        └── output                       ジョブ実行時に処理が失敗した場合に原因などを示したエラーメッセージを出力します。
+            └── failure
+"""
+# These are the paths to where SageMaker mounts interesting things in your container.
+prefix = '/opt/ml/'
+
+input_path = prefix + 'input/data'
+output_path = os.path.join(prefix, 'output')
+model_path = os.path.join(prefix, 'model')
+param_path = os.path.join(prefix, 'input/config/hyperparameters.json')
+
+# This algorithm has a single channel of input data called 'training'. Since we run in
+# File mode, the input files are copied to the directory specified here.
+channel_name='training'
+training_path = os.path.join(input_path, channel_name)
+
+# The function to execute the training.
+def train():
+    logger.debug("Starting the training.")
+    logger.debug(subprocess.run(["tree","/opt"]))
+    try:
+        # Read in any hyperparameters that the user passed with the training job
+        with open(param_path, 'r') as tc:
+            trainingParams = json.load(tc)
+
+
+        # Take the set of files and read them all into a single pandas dataframe
+        input_files = [ os.path.join(training_path, file) for file in os.listdir(training_path) ]
+        if len(input_files) == 0:
+            raise ValueError(
+                f"""There are no files in {training_path}.\n
+                This usually indicates that the channel ({channel_name}) was incorrectly specified,\n
+                the data specification in S3 was incorrectly specified or the role specified\n
+                does not have permission to access the data."""
+            )
+        raw_data = [ pd.read_csv(file, header=None) for file in input_files ]
+        train_data = pd.concat(raw_data)
+
+        # labels are in the first column. The answer
+        training_label = train_data.iloc[:,0]
+        #The training data.
+        training_data = train_data.iloc[:,1:]
+
+        # Here we only support a single hyperparameter. Note that hyperparameters are always passed in as
+        # strings, so we need to do any necessary conversions.
+        max_leaf_nodes = trainingParams.get('max_leaf_nodes', None)
+        if max_leaf_nodes is not None:
+            max_leaf_nodes = int(max_leaf_nodes)
+
+        # Now use scikit-learn's decision tree classifier to train the model.
+        clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes)
+        clf = clf.fit(training_data, training_label)
+
+        # save the model as a pickle
+        with open(os.path.join(model_path, 'decision-tree-model.pkl'), 'wb') as f:
+            pickle.dump(clf, f)
+    except Exception as e:
+        # Write out an error file. This will be returned as the failureReason in the
+        # DescribeTrainingJob result.
+        trc = traceback.format_exc()
+        with open(os.path.join(output_path, 'failure'), 'w') as f:
+            f.write(f"type = {type(e)} , message = {e}\n" + trc)
+        # Printing this causes the exception to be in the training job logs, as well.
+        print(f"type = {type(e)} , message = {e}\n" + trc, file=sys.stderr)
+        # A non-zero exit code causes the training job to be marked as Failed.
+        sys.exit(255)
+    else:
+        logger.debug('Training complete.')
+
+if __name__ == '__main__':
+    train()
+
+    # A zero exit code causes the job to be marked a Succeeded.
+    sys.exit(0)
