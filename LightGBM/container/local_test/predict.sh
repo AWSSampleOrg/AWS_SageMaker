@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 payload=$1
 content=${2:-text/csv}

@@ -15,31 +15,10 @@ from sklearn import tree
 logger = getLogger(__name__)
 handler = StreamHandler()
 handler.setLevel(DEBUG)
-logger.setLevel(os.getenv("LogLevel", WARNING))
+logger.setLevel(os.getenv("LOG_LEVEL", WARNING))
 logger.addHandler(handler)
 logger.propagate = False
 
-"""
-/opt
-    ├── program
-    |    ├─ train                        学習
-    |    |
-    │    ├─ predict.py                   推論
-    │    ├─ wsgi.py                      推論
-    │    ├─ nginx.conf                   推論
-    │    └─ serve                        推論
-    └──ml
-        ├── input
-        │   ├── config
-        │   │   ├── hyperparameters.json 学習時などに使用するハイパーパラメータが辞書形式で保存されているJSONファイルです。辞書形式で値は全て文字列型になっているので、読み込む際には適切な型へのキャストを行う必要があります。
-        │   └── data
-        │       └── <channel_name>       対応するチャネルの入力データが入っています。学習処理が実行される前にS3からデータがコピーされます。
-        │           └── <input data>
-        ├── model                        学習の結果得られたモデルデータを出力します。
-        │   └── <model files>            保存するモデルデータは単体ファイル、複数ファイルは問いません。SageMakerが自動的にmodelディレクトリをtarで圧縮し、S3に保存します。
-        └── output                       ジョブ実行時に処理が失敗した場合に原因などを示したエラーメッセージを出力します。
-            └── failure
-"""
 # These are the paths to where SageMaker mounts interesting things in your container.
 prefix = '/opt/ml/'
 

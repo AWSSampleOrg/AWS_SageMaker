@@ -23,7 +23,7 @@ import sys
 logger = getLogger(__name__)
 handler = StreamHandler()
 handler.setLevel(DEBUG)
-logger.setLevel(os.getenv("LogLevel", WARNING))
+logger.setLevel(os.getenv("LOG_LEVEL", WARNING))
 logger.addHandler(handler)
 logger.propagate = False
 
@@ -34,15 +34,14 @@ model_server_timeout = os.environ.get('MODEL_SERVER_TIMEOUT', 60)
 model_server_workers = int(os.environ.get('MODEL_SERVER_WORKERS', cpu_count))
 
 def sigterm_handler(nginx_pid, gunicorn_pid):
-    logger.info(f"{sys._getframe().f_code.co_name} function called")
     try:
         os.kill(nginx_pid, signal.SIGQUIT)
     except OSError as e:
-        logger.warning(f"type = {type(e)}, message = {e}",exc_info=True)
+        logger.warning(e)
     try:
         os.kill(gunicorn_pid, signal.SIGTERM)
     except OSError as e:
-        logger.warning(f"type = {type(e)}, message = {e}",exc_info=True)
+        logger.warning(e)
 
     sys.exit(0)
 

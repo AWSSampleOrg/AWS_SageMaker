@@ -23,6 +23,6 @@ if [ $? -ne 0 ] ; then
     aws ecr create-repository --repository-name "${image}" --profile ${profile_name} > /dev/null
 fi
 
-$(aws ecr get-login --region ${region} --no-include-email --profile ${profile_name})
+aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account}.dkr.ecr.${region}.amazonaws.com
 
 docker image push ${fullname}

@@ -13,7 +13,7 @@ import pandas as pd
 logger = getLogger(__name__)
 handler = StreamHandler()
 handler.setLevel(DEBUG)
-logger.setLevel(os.getenv("LogLevel", WARNING))
+logger.setLevel(os.getenv("LOG_LEVEL", WARNING))
 logger.addHandler(handler)
 logger.propagate = False
 
@@ -30,7 +30,6 @@ class ScoringService(object):
     @classmethod
     def get_model(cls):
         """Get the model object for this instance, loading it if it's not already loaded."""
-        logger.info(f"{sys._getframe().f_code.co_name} function called")
         if cls.model == None:
             with open(os.path.join(model_path, 'decision-tree-model.pkl'),'rb') as f:
                 cls.model = pickle.load(f)
@@ -43,7 +42,6 @@ class ScoringService(object):
         Args:
             input (a pandas dataframe): The data on which to do the predictions. There will be
                 one prediction per row in the dataframe"""
-        logger.info(f"{sys._getframe().f_code.co_name} function called")
 
         clf = cls.get_model()
         return clf.predict(input)
@@ -55,7 +53,6 @@ app = flask.Flask(__name__)
 def ping():
     """Determine if the container is working and healthy. In this sample container, we declare
     it healthy if we can load the model successfully."""
-    logger.info(f"{sys._getframe().f_code.co_name} function called")
 
     health = ScoringService.get_model() is not None  # You can insert a health check here
 
@@ -68,7 +65,6 @@ def transformation():
     it to a pandas data frame for internal use and then convert the predictions back to CSV (which really
     just means one prediction per line, since there's a single column.
     """
-    logger.info(f"{sys._getframe().f_code.co_name} function called")
 
     data = None
 

@@ -17,32 +17,10 @@ from sklearn.model_selection import train_test_split
 logger = getLogger(__name__)
 handler = StreamHandler()
 handler.setLevel(DEBUG)
-logger.setLevel(os.getenv("LogLevel", WARNING))
+logger.setLevel(os.getenv("LOG_LEVEL", WARNING))
 logger.addHandler(handler)
 logger.propagate = False
 
-"""
-/opt
-    ├── program
-    |    ├─ train                        学習
-    |    |
-    │    ├─ predict.py                   推論
-    │    ├─ wsgi.py                      推論
-    │    ├─ nginx.conf                   推論
-    │    └─ serve                        推論
-    └──ml
-        ├── input
-        │   ├── config
-        │   │   ├── hyperparameters.json 学習時などに使用するハイパーパラメータが辞書形式で保存されているJSONファイルです。辞書形式で値は全て文字列型になっているので、読み込む際には適切な型へのキャストを行う必要があります。
-        │   │   ├── inputdataconfig.json 入力データの情報が記述されたJSONファイルです。入力されるデータチャネルごとにコンテンツタイプやインプットモードなどが記述されています。
-        │   └── data
-        │       └── <channel_name>       対応するチャネルの入力データが入っています。学習処理が実行される前にS3からデータがコピーされます。
-        │           └── <input data>
-        ├── model                        学習の結果得られたモデルデータを出力します。
-        │   └── <model files>            保存するモデルデータは単体ファイル、複数ファイルは問いません。SageMakerが自動的にmodelディレクトリをtarで圧縮し、S3に保存します。
-        └── output                       ジョブ実行時に処理が失敗した場合に原因などを示したエラーメッセージを出力します。
-            └── failure
-"""
 # These are the paths to where SageMaker mounts interesting things in your container.
 prefix = '/opt/ml/'
 input_path = prefix + 'input/data'
@@ -51,7 +29,7 @@ model_path = os.path.join(prefix, 'model')
 param_path = os.path.join(prefix, 'input/config/hyperparameters.json')
 inputdataconfig_path = os.path.join(prefix, 'input/config/inputdataconfig.json')
 
-# 有効なデータチャネル(Fileモードのみ対応)
+
 valid_channel_names = ['train', 'validation']
 
 # The function to execute the training.
@@ -59,22 +37,19 @@ def train():
     logger.debug("Starting the training.")
     logger.debug(subprocess.run(["tree","/opt"]))
     try:
-        # ハイパーパラメータを読み込みます
         with open(param_path, 'r') as f:
             #https://qiita.com/nabenabe0928/items/6b9772131ba89da00354
-            #Jupyterで渡した辞書の値が文字列以外でも、jsonが作成されるときには
-            #全て文字列型に変換されている。よって、適切な型への変換が必要
             hyperparams = json.load(f)
 
         logger.debug(f"hyperparams = {hyperparams}")
 
-        # 入力データコンフィグを読み込みます
+
         with open(inputdataconfig_path, 'r') as f:
             inputdataconfig = json.load(f)
 
         logger.debug(f"inputdataconfig = {inputdataconfig}")
 
-        # 入力データを読み込みます。
+
         inputdata_dic = {}
         for channel_name in inputdataconfig.keys():
             #If channel_name is not "train" or "validation"
